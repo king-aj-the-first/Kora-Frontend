@@ -147,6 +147,9 @@ interface InvoiceStore {
   setSearchQuery: (q: string) => void;
   setSelectedInvoice: (invoice: Invoice | null) => void;
   updateInvoiceFunding: (id: string, newAmount: number) => void;
+  rollbackInvoiceFunding: (id: string) => void;
+  // internal backup map (not persisted)
+  _fundingBackup?: Record<string, any>;
   setCreateDraft: (draft: Partial<InvoiceCreateDraft>) => void;
   clearCreateDraft: () => void;
 
@@ -181,21 +184,53 @@ export const useInvoiceStore = create<InvoiceStore>()(
 
       /** Optimistic update — instantly reflects new funding amount in UI */
       updateInvoiceFunding: (id, newAmount) =>
-        set((s) => ({
-          invoices: s.invoices.map((inv) => {
+        set((s) => {
+          const prev = s.invoices.find((i) => i.id === id);
+          const backup = prev ? { ...prev.funding, status: prev.status } : undefined;
+          const nextInvoices = s.invoices.map((inv) => {
             if (inv.id !== id) return inv;
             const totalRaised = Math.min(newAmount, inv.funding.targetAmount);
+            const isFull = totalRaised >= inv.funding.targetAmount;
             return {
               ...inv,
+              status: isFull ? "fully_funded" : inv.status,
               funding: {
                 ...inv.funding,
                 totalRaised,
                 fundingProgress: totalRaised / inv.funding.targetAmount,
                 remainingCapacity: inv.funding.targetAmount - totalRaised,
+                investorCount: inv.funding.investorCount + 1,
               },
             };
-          }),
-        })),
+          });
+          return {
+            invoices: nextInvoices,
+            _fundingBackup: backup ? { ...(s._fundingBackup || {}), [id]: backup } : s._fundingBackup,
+          } as any;
+        }),
+
+      rollbackInvoiceFunding: (id) =>
+        set((s) => {
+          const backup = s._fundingBackup?.[id];
+          if (!backup) return {} as any;
+          const invoices = s.invoices.map((inv) => {
+            if (inv.id !== id) return inv;
+            return {
+              ...inv,
+              status: backup.status ?? inv.status,
+              funding: {
+                ...inv.funding,
+                totalRaised: backup.totalRaised ?? inv.funding.totalRaised,
+                fundingProgress: backup.fundingProgress ?? inv.funding.fundingProgress,
+                remainingCapacity: backup.remainingCapacity ?? inv.funding.remainingCapacity,
+                investorCount: backup.investorCount ?? inv.funding.investorCount,
+              },
+            } as Invoice;
+          });
+          const nextBackup = { ...(s._fundingBackup || {}) };
+          delete nextBackup[id];
+          return { invoices, _fundingBackup: nextBackup } as any;
+        }),
 
       setCreateDraft: (draft) =>
         set((s) => ({ createDraft: { ...s.createDraft, ...draft } })),

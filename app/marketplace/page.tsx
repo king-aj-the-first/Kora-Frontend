@@ -22,6 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { InvoiceCard } from "@/components/invoice/InvoiceCard";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useInvoiceStore, DEFAULT_FILTERS } from "@/store";
+import { Container } from "@/components/layout/Container";
+import { useBreakpoint } from "@/components/layout/useBreakpoint";
 import { cn } from "@/lib/utils";
 
 // ─── Filter Options ──────────────────────────────────────────────────────────
@@ -459,6 +461,14 @@ function MarketplaceContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isUrlHydrated, setIsUrlHydrated] = useState(false);
+  const breakpoint = useBreakpoint();
+  const isMobile = breakpoint === "sm";
+
+  useEffect(() => {
+    if (!isMobile) {
+      setIsMobileDrawerOpen(false);
+    }
+  }, [isMobile]);
 
   // 1. URL to Zustand Sync Loop (On Mount / Initial Hydration)
   /* Hydrates the client-side Zustand store with initial filters parsed from the URL search queries */
@@ -639,7 +649,7 @@ function MarketplaceContent() {
   }
 
   return (
-    <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <Container className="relative py-10 lg:px-8">
       {/* Background radial gradient mesh */}
       <div className="absolute inset-0 bg-mesh pointer-events-none z-0" />
 
@@ -761,12 +771,12 @@ function MarketplaceContent() {
 
       {/* C. Slide-out Filter Drawer (Mobile screens) */}
       {isMobileDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end lg:hidden">
+        <div className="fixed inset-0 z-50 flex items-end justify-center lg:hidden">
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
+            className="absolute inset-0 bg-black/70 backdrop-blur-xs"
             onClick={() => setIsMobileDrawerOpen(false)}
           />
-          <div className="relative z-50 flex h-full w-full max-w-xs flex-col bg-zinc-950 p-6 border-l border-zinc-905 shadow-2xl transition-transform duration-300">
+          <div className="relative z-50 w-full max-w-3xl rounded-t-[32px] border border-zinc-900 bg-zinc-950 p-6 shadow-2xl shadow-black/40 max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between border-b border-zinc-900 pb-4 mb-6">
               <h2 className="text-md font-bold text-zinc-150 flex items-center gap-2">
                 <SlidersHorizontal className="h-4 w-4 text-primary" />
@@ -779,13 +789,15 @@ function MarketplaceContent() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-6 pr-1">
-              {renderFiltersList()}
+            <div className="flex h-[calc(90vh-5rem)] flex-col overflow-hidden">
+              <div className="overflow-y-auto pr-1 space-y-6">
+                {renderFiltersList()}
+              </div>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </Container>
   );
 }
 

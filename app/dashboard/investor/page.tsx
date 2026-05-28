@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Progress } from "@/components/ui/progress";
-import { DataTable } from "@/components/ui/data-table";
+import dynamic from "next/dynamic";
+const DataTable = dynamic(() => import("@/components/ui/data-table").then((m) => m.DataTable), {
+  ssr: false,
+  loading: () => <div className="h-48 rounded bg-zinc-900/40" />,
+});
 import { useWallet } from "@/hooks/useWallet";
 import { useUIStore } from "@/store";
 import { MOCK_INVOICES } from "@/services/mockData";

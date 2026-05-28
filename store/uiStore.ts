@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { TxState } from "@/types";
 
-export type Theme = "light" | "dark";
+export type Theme = "light" | "dark" | "system";
 
 interface UIStore {
   walletModalOpen: boolean;
@@ -34,10 +34,13 @@ export const useUIStore = create<UIStore>()(
       sidebarOpen: false,
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
 
-      theme: "dark",
+      // default to system for best UX
+      theme: "system",
       setTheme: (theme) => set({ theme }),
-      toggleTheme: () =>
-        set({ theme: get().theme === "dark" ? "light" : "dark" }),
+      toggleTheme: () => {
+        const next = get().theme === "system" ? "dark" : get().theme === "dark" ? "light" : "system";
+        set({ theme: next });
+      },
     }),
     {
       name: "kora-ui-store",

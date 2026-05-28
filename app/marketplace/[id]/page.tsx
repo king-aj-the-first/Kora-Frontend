@@ -85,8 +85,12 @@ export default function InvoiceDetailPage() {
   const handleFund = async () => {
     if (!isConnected) { setWalletModalOpen(true); return; }
     if (!amountNum || amountNum < terms.minInvestment || amountNum > fundingState.remainingCapacity) return;
-
     setFunding(true);
+
+    // Optimistic update: immediately reflect new totals in UI
+    const newTotalRaised = fundingState.totalRaised + amountNum;
+    useInvoiceStore.getState().updateInvoiceFunding(id, newTotalRaised);
+
     await execute(
       () => prepareFundInvoice(invoice.tokenId, amountNum, address!),
       {
@@ -145,6 +149,12 @@ Stellar Testnet Transaction Hash: ${txHash}`);
           // Clear form input amount
           setAmount("");
         }
+        ,
+        onError: (err) => {
+          // Rollback optimistic change
+          useInvoiceStore.getState().rollbackInvoiceFunding(id);
+          console.error("Fund transaction failed", err);
+        }
       }
     );
     setFunding(false);
@@ -175,9 +185,16 @@ Stellar Testnet Transaction Hash: ${txHash}`);
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <RiskBadge tier={riskTier} />
-                    <span className={cn("rounded-md px-2 py-0.5 text-xs capitalize", STATUS_COLORS[status])}>
-                      {status.replace(/_/g, " ")}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("rounded-md px-2 py-0.5 text-xs capitalize", STATUS_COLORS[status])}>
+                        {status.replace(/_/g, " ")}
+                      </span>
+                      {funding && (
+                        <span className="rounded-md bg-yellow-600/20 px-2 py-0.5 text-[11px] text-yellow-300">
+                          Pending confirmation
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardHeader>

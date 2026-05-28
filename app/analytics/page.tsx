@@ -2,20 +2,16 @@
 
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import dynamic from "next/dynamic";
+const Charts = dynamic(() => import("@/components/analytics/Charts"), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-4">
+      <div className="h-56 rounded bg-zinc-900/40" />
+      <div className="h-56 rounded bg-zinc-900/40" />
+    </div>
+  ),
+});
 import { TrendingUp, DollarSign, BarChart3, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -178,124 +174,10 @@ export default function PortfolioAnalyticsPage() {
 
       {/* Charts row 1 */}
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        {/* Portfolio growth */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Portfolio Growth (USDC)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={PORTFOLIO_HISTORY}>
-                  <defs>
-                    <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`} />
-                  <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toLocaleString()}`, "Portfolio"]} />
-                  <Area type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2} fill="url(#portfolioGrad)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Monthly yield */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Yield Earned (USDC)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={YIELD_HISTORY}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`$${v.toLocaleString()}`, "Yield"]} />
-                  <Bar dataKey="yield" fill="#14b8a6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
+        <Charts portfolio={PORTFOLIO_HISTORY} yieldData={YIELD_HISTORY} monthly={MONTHLY_RETURNS} risk={RISK_DISTRIBUTION} />
       </div>
 
-      {/* Charts row 2 */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Risk distribution */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Risk Distribution</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie
-                    data={RISK_DISTRIBUTION}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {RISK_DISTRIBUTION.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`${v}%`, "Allocation"]} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {RISK_DISTRIBUTION.map((d) => (
-                  <div key={d.name} className="flex items-center gap-2 text-xs">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: d.color }} />
-                    <span className="text-zinc-400">{d.name}</span>
-                    <span className="ml-auto text-zinc-300">{d.value}%</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Monthly return % */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="lg:col-span-2"
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Return Rate (%)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={MONTHLY_RETURNS}>
-                  <defs>
-                    <linearGradient id="returnGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#818cf8" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                  <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`${v}%`, "Return"]} />
-                  <Area type="monotone" dataKey="return" stroke="#818cf8" strokeWidth={2} fill="url(#returnGrad)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+      <Charts portfolio={PORTFOLIO_HISTORY} yieldData={YIELD_HISTORY} monthly={MONTHLY_RETURNS} risk={RISK_DISTRIBUTION} compact />
     </div>
   );
 }
