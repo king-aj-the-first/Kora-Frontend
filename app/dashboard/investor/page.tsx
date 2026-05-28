@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import dynamic from "next/dynamic";
 const DataTable = dynamic(() => import("@/components/ui/data-table").then((m) => m.DataTable), {
   ssr: false,
-  loading: () => <div className="h-48 rounded bg-zinc-900/40" />,
+  loading: () => <DashboardSkeleton statCount={4} tableRows={5} tableCols={9} />,
 });
 import { useWallet } from "@/hooks/useWallet";
 import { useUIStore } from "@/store";
@@ -19,6 +19,7 @@ import { useTransaction } from "@/hooks/useTransaction";
 import { prepareClaimPosition } from "@/services/invoiceService";
 import { MOCK_INVOICES } from "@/services/mockData";
 import { RiskBadge } from "@/components/ui/badge";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
 import {
   formatCurrency,
   formatDate,
@@ -27,6 +28,7 @@ import {
   cn,
 } from "@/lib/utils";
 import type { ColumnDef } from "@/types/table";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 interface InvestorPosition {
   id: string;
@@ -286,7 +288,8 @@ export default function InvestorDashboardPage() {
     : POSITIONS;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <ErrorBoundary>
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Investor Dashboard</h1>
@@ -385,5 +388,6 @@ export default function InvestorDashboardPage() {
         </Card>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

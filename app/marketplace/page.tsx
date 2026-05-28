@@ -19,11 +19,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { InvoiceCard, InvoiceCardSkeleton } from "@/components/invoice/InvoiceCard";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useInvoices } from "@/hooks/useInvoices";
 import { useInvoiceStore, DEFAULT_FILTERS } from "@/store";
 import { Container } from "@/components/layout/Container";
 import { useBreakpoint } from "@/components/layout/useBreakpoint";
 import { cn } from "@/lib/utils";
+import { sanitizeQueryParam } from "@/lib/security";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 // ─── Filter Options ──────────────────────────────────────────────────────────
 
@@ -438,7 +441,7 @@ function MarketplaceContent() {
     
     const activeOnly = searchParams.get("activeOnly") === "true";
     const sortByParam = searchParams.get("sortBy") || "apr_desc";
-    const qParam = searchParams.get("q") || "";
+    const qParam = sanitizeQueryParam(searchParams.get("q"));
 
     const urlPage = Number(searchParams.get("page") || 1);
     const urlPageSize = Number(searchParams.get("pageSize") || 10);
@@ -612,11 +615,11 @@ function MarketplaceContent() {
     return (
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="mb-8 space-y-2">
-          <div className="h-8 bg-zinc-900 rounded w-1/4 animate-pulse" />
-          <div className="h-4 bg-zinc-900 rounded w-1/6 animate-pulse" />
+          <Skeleton className="h-8 w-1/4" />
+          <Skeleton className="h-4 w-1/6" />
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {[...Array(8)].map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
             <InvoiceCardSkeleton key={i} />
           ))}
         </div>
@@ -828,22 +831,24 @@ function MarketplaceContent() {
 // default export utilizing Suspense boundary for useSearchParams compliance
 export default function MarketplacePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-          <div className="mb-8 space-y-2">
-            <div className="h-8 bg-zinc-900 rounded w-1/4 animate-pulse" />
-            <div className="h-4 bg-zinc-900 rounded w-1/6 animate-pulse" />
+    <ErrorBoundary>
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+            <div className="mb-8 space-y-2">
+              <Skeleton className="h-8 w-1/4" />
+              <Skeleton className="h-4 w-1/6" />
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <InvoiceCardSkeleton key={i} />
+              ))}
+            </div>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[...Array(8)].map((_, i) => (
-              <InvoiceCardSkeleton key={i} />
-            ))}
-          </div>
-        </div>
-      }
-    >
-      <MarketplaceContent />
-    </Suspense>
+        }
+      >
+        <MarketplaceContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
