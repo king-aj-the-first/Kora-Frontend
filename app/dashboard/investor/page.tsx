@@ -315,11 +315,13 @@ export default function InvestorDashboardPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Positions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Positions</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
           <DataTable
             data={positionsData}
             columns={POSITION_COLUMNS}
@@ -331,14 +333,15 @@ export default function InvestorDashboardPage() {
             }}
           />
         </CardContent>
-      </Card>
+          </Card>
+        </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Allocation by Risk Tier</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Allocation by Risk Tier</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
             {Object.entries(
               POSITIONS.reduce<Record<string, number>>((acc, p) => {
                 acc[p.invoice.riskTier] = (acc[p.invoice.riskTier] || 0) + p.investedAmount;
@@ -386,6 +389,7 @@ export default function InvestorDashboardPage() {
             ))}
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
     </ErrorBoundary>
