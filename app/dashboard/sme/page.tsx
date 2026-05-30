@@ -68,6 +68,7 @@ export default function SMEDashboardPage() {
         "USDC",
         true
       ),
+      valueRaw: myInvoices.reduce((s, i) => s + i.funding.totalRaised, 0),
       change: "12.4% this month",
       changePositive: true,
       icon: <TrendingUp className="h-4 w-4" />,
@@ -75,6 +76,7 @@ export default function SMEDashboardPage() {
     {
       label: "Active Invoices",
       value: myInvoices.filter((i) => ["listed", "partially_funded", "fully_funded"].includes(i.status)).length.toString(),
+      valueRaw: myInvoices.filter((i) => ["listed", "partially_funded", "fully_funded"].includes(i.status)).length,
       icon: <FileText className="h-4 w-4" />,
     },
     {
@@ -84,6 +86,7 @@ export default function SMEDashboardPage() {
         "USDC",
         true
       ),
+      valueRaw: myInvoices.filter((i) => i.status === "fully_funded").reduce((s, i) => s + i.metadata.amount, 0),
       icon: <Clock className="h-4 w-4" />,
     },
     {
