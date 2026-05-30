@@ -294,3 +294,17 @@ export async function prepareClaimPosition(
   );
 }
 
+/**
+ * Cancel a pending/listed invoice — returns unsigned XDR for wallet signing.
+ */
+export async function prepareCancelInvoice(
+  tokenId: string,
+  ownerAddress: string
+): Promise<string> {
+  if (USE_MOCK) {
+    return `mock_unsigned_xdr_cancel_invoice_${tokenId}_${ownerAddress}`;
+  }
+  return marketplaceContract.cancelInvoice({ tokenId: BigInt(tokenId) }, ownerAddress);
+}
+
+
