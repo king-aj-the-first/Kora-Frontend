@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, LogOut, ExternalLink, Bell } from "lucide-react";
+import { ChevronDown, LogOut, ExternalLink, Bell, Coins, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { StellarAddress } from "@/components/ui/stellar-address";
@@ -15,16 +15,39 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useWallet } from "@/hooks/useWallet";
+import { useToast } from "@/hooks/useToast";
 import { useUIStore } from "@/store";
 import { cn } from "@/lib/utils";
 import { safeStellarAccountUrl } from "@/lib/security";
+import { env } from "@/lib/env";
 
 export function WalletButton() {
-  const { isConnected, address, balance, disconnectWallet } = useWallet();
+  const { isConnected, address, balance, disconnectWallet, fundWalletOnTestnet, refreshBalance } = useWallet();
   const { setWalletModalOpen } = useUIStore();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmDisconnectOpen, setConfirmDisconnectOpen] = useState(false);
+  const [isFunding, setIsFunding] = useState(false);
+
+  const isTestnet = env.NEXT_PUBLIC_STELLAR_NETWORK === "testnet";
+
+  const handleFundTestnetAccount = async () => {
+    setIsFunding(true);
+    const toastId = "testnet-funding";
+    try {
+      toast.loading("Funding testnet account...", toastId);
+      await fundWalletOnTestnet();
+      await refreshBalance();
+      toast.success("Testnet account funded with 10,000 XLM", undefined, toastId);
+      setOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to fund testnet account";
+      toast.error("Funding failed", message, undefined, toastId);
+    } finally {
+      setIsFunding(false);
+    }
+  };
 
   const handleDisconnect = async () => {
     await disconnectWallet();
@@ -94,6 +117,17 @@ export function WalletButton() {
             >
               <Bell className="h-3.5 w-3.5" /> Notification settings
             </button>
+            {isTestnet && (
+              <button
+                type="button"
+                disabled={isFunding}
+                onClick={handleFundTestnetAccount}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+              >
+                {isFunding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Coins className="h-3.5 w-3.5" />}
+                {isFunding ? "Funding..." : "Fund Testnet Account"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setConfirmDisconnectOpen(true)}
@@ -122,7 +156,7 @@ export function WalletButton() {
           <DialogHeader>
             <DialogTitle>Disconnect wallet?</DialogTitle>
             <DialogDescription>
-              Are you sure? This will clear wallet-dependent data and end your current session.
+              Are you sure? This will clear your wallet session and redirect from protected pages.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

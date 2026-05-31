@@ -20,7 +20,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, GlassCard } from "@/components/ui/card";
-import { Progress, InvoiceFundingProgress } from "@/components/ui/progress";
+import { InvoiceFundingProgress } from "@/components/ui/progress";
 import { Skeleton, InvoiceDetailSkeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { useInvoice } from "@/hooks/useInvoices";
@@ -42,6 +42,7 @@ import {
 } from "@/lib/utils";
 import CountdownTimer from "@/components/ui/CountdownTimer";
 import { InvoiceStatusBadge } from "@/components/invoice/InvoiceStatusBadge";
+import { RiskScoreGauge } from "@/components/invoice/RiskScoreGauge";
 import { DebtorDisplay } from "@/components/invoice/DebtorDisplay";
 import { InvoiceMetadataViewer } from "@/components/invoice/InvoiceMetadataViewer";
 import { validateRouteId, safeIpfsUrl, safeExternalUrl, safeStellarTxUrl } from "@/lib/security";
@@ -92,6 +93,49 @@ export default function InvoiceDetailPage() {
       ? safeExternalUrl(metadata.documentUrl)
       : safeIpfsUrl(metadata.documentHash, env.NEXT_PUBLIC_IPFS_GATEWAY);
   const hasDocument = Boolean(documentPreviewUrl && documentPreviewUrl !== "#");
+
+  const riskFactors = [
+    {
+      key: "payment_history",
+      label: "Payment History",
+      score: Math.max(20, Math.min(98, invoice.riskScore + 8)),
+    },
+    {
+      key: "debtor_size",
+      label: "Debtor Size",
+      score: Math.max(15, Math.min(95, invoice.riskScore - 6)),
+    },
+    {
+      key: "jurisdiction",
+      label: "Jurisdiction",
+      score: Math.max(
+        10,
+        Math.min(
+          92,
+          invoice.riskScore + (invoice.metadata.jurisdiction === "US" || invoice.metadata.jurisdiction === "EU" ? 4 : -8)
+        )
+      ),
+    },
+    {
+      key: "invoice_age",
+      label: "Invoice Age",
+      score: Math.max(12, Math.min(96, invoice.riskScore - Math.min(18, Math.floor(daysToMaturity / 4)))),
+    },
+  ];
+
+  const riskTrend = (() => {
+    const sameDebtor = MOCK_INVOICES
+      .filter((inv) => inv.metadata.debtorName === invoice.metadata.debtorName && inv.id !== invoice.id)
+      .slice(0, 4)
+      .map((inv) => inv.riskScore);
+
+    const combined = [...sameDebtor, invoice.riskScore];
+    while (combined.length < 5) {
+      const seed = combined[0] ?? invoice.riskScore;
+      combined.unshift(Math.max(0, Math.min(100, seed + (combined.length % 2 === 0 ? -4 : 3))));
+    }
+    return combined.slice(-5);
+  })();
 
   // Input validations for min-investment and remaining capacities
   let inputError = "";
@@ -562,17 +606,12 @@ Stellar Testnet Transaction Hash: ${txHash}`);
                 <Shield className="h-4 w-4 text-zinc-500" />
                 <p className="text-sm font-medium text-zinc-300">Risk Assessment</p>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-zinc-500">Risk Tier</span>
-                  <RiskBadge tier={riskTier} />
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">Risk Score</span>
-                  <span className="text-zinc-300">{invoice.riskScore}/100</span>
-                </div>
-                <Progress value={invoice.riskScore} className="h-1.5" />
-              </div>
+              <RiskScoreGauge
+                score={invoice.riskScore}
+                tier={riskTier}
+                factors={riskFactors}
+                trend={riskTrend}
+              />
             </Card>
           </motion.div>
 
