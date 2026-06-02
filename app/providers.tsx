@@ -24,8 +24,20 @@ const OnboardingTour = dynamic(
 );
 
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
 import { useUIStore } from "@/store/uiStore";
 import { env } from "@/lib/env";
+
+// Pre-load both locale message files at the module level so they are
+// bundled and available synchronously on the client.
+import enMessages from "@/messages/en.json";
+import esMessages from "@/messages/es.json";
+import type { Locale } from "@/i18n/config";
+
+const ALL_MESSAGES: Record<Locale, Record<string, unknown>> = {
+  en: enMessages as Record<string, unknown>,
+  es: esMessages as Record<string, unknown>,
+};
 
 function ThemedToaster() {
   const theme = useUIStore((s) => s.theme);
@@ -57,16 +69,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        {children}
-        <OnboardingTour />
-        <WalletConnectModal />
-        <InstallPrompt />
-        <ThemedToaster />
-        {env.NEXT_PUBLIC_ENABLE_DEVTOOLS && (
-          <ReactQueryDevtools initialIsOpen={false} />
-        )}
-      </ThemeProvider>
+      <LocaleProvider allMessages={ALL_MESSAGES}>
+        <ThemeProvider>
+          {children}
+          <OnboardingTour />
+          <WalletConnectModal />
+          <InstallPrompt />
+          <ThemedToaster />
+          {env.NEXT_PUBLIC_ENABLE_DEVTOOLS && (
+            <ReactQueryDevtools initialIsOpen={false} />
+          )}
+        </ThemeProvider>
+      </LocaleProvider>
     </QueryClientProvider>
   );
 }

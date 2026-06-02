@@ -4,16 +4,14 @@ import { useState } from "react";
 import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   ExternalLink,
   Calendar,
-  MapPin,
-  Building2,
   FileText,
   Users,
   TrendingUp,
-  Shield,
   CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
@@ -21,15 +19,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, GlassCard } from "@/components/ui/card";
 import { InvoiceFundingProgress } from "@/components/ui/progress";
-import { Skeleton, InvoiceDetailSkeleton } from "@/components/ui/skeleton";
+import { InvoiceDetailSkeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { useInvoice } from "@/hooks/useInvoices";
 import { useWallet } from "@/hooks/useWallet";
 import { usePositions } from "@/hooks/usePositions";
 import { useTransaction } from "@/hooks/useTransaction";
+import { useTxSimulation } from "@/hooks/useTxSimulation";
+import { TxSimulationPreview } from "@/components/invoice/TxSimulationPreview";
 import { useUIStore, useInvoiceStore } from "@/store";
 import { prepareFundInvoice } from "@/services/invoiceService";
-import { Badge, RiskBadge } from "@/components/ui/badge";
+import { RiskBadge } from "@/components/ui/badge";
 import ShareInvoiceButton from "@/components/invoice/ShareInvoiceButton";
 import { MOCK_INVOICES } from "@/services/mockData";
 import {
@@ -57,6 +57,7 @@ import {
 } from "@/lib/structuredData";
 
 export default function InvoiceDetailPage() {
+  const t = useTranslations("invoiceDetail");
   const params = useParams<{ id: string }>();
   const id = validateRouteId(params.id) ?? "";
   const { data: invoice, isLoading, dataUpdatedAt } = useInvoice(id);
@@ -64,6 +65,7 @@ export default function InvoiceDetailPage() {
   const { data: positions } = usePositions(address ?? undefined);
   const { setWalletModalOpen } = useUIStore();
   const { execute } = useTransaction();
+  const { simulationDialogProps, onSimulationPreview } = useTxSimulation();
   const queryClient = useQueryClient();
    const [amount, setAmount] = useState("");
    const [funding, setFunding] = useState(false);
@@ -168,6 +170,7 @@ export default function InvoiceDetailPage() {
       {
         successMessage: "Invoice funded successfully!",
         successNotificationType: "invoiceFunded",
+        onSimulationPreview,
         onSuccess: (txHash) => {
           // DoD Requirement: Clear instructions and trace of exposes final txHash to developer console
           console.log(`[Stellar/Soroban Factoring ESCROW Confirmation]
@@ -277,7 +280,7 @@ Stellar Testnet Transaction Hash: ${txHash}`);
         href="/marketplace"
         className="mb-6 inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to Marketplace
+        <ArrowLeft className="h-4 w-4" /> {t("backToMarketplace")}
       </Link>
 
       <div className="grid gap-8 lg:grid-cols-3">
@@ -705,7 +708,9 @@ Stellar Testnet Transaction Hash: ${txHash}`);
         </div>
       </div>
     </div>
-    </div>
+
+      {/* Transaction simulation preview dialog */}
+      <TxSimulationPreview {...simulationDialogProps} />
     </ErrorBoundary>
   );
 }

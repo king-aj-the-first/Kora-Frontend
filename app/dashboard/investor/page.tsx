@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/useToast";
 import { useUIStore } from "@/store";
 import { usePositions } from "@/hooks/usePositions";
 import { useTransaction } from "@/hooks/useTransaction";
+import { useTxSimulation } from "@/hooks/useTxSimulation";
+import { TxSimulationPreview } from "@/components/invoice/TxSimulationPreview";
 import { useMaturityReminder } from "@/hooks/useMaturityReminder";
 import { prepareClaimPosition } from "@/services/invoiceService";
 import { MOCK_INVOICES } from "@/services/mockData";
@@ -183,6 +185,7 @@ export default function InvestorDashboardPage() {
   const [isFunding, setIsFunding] = useState(false);
   const positionsQuery = usePositions(address ?? undefined, { refetchInterval: 30_000 });
   const { execute } = useTransaction();
+  const { simulationDialogProps, onSimulationPreview } = useTxSimulation();
 
   const rawPositions = positionsQuery.data;
   const positionsData: InvestorPosition[] = rawPositions
@@ -218,6 +221,7 @@ export default function InvestorDashboardPage() {
     if (!address) return;
     await execute(() => prepareClaimPosition(pos.id, address), {
       successMessage: "Claim submitted",
+      onSimulationPreview,
       onSuccess: () => positionsQuery.refetch(),
     });
   };
@@ -431,6 +435,9 @@ export default function InvestorDashboardPage() {
         </Card>
       </div>
     </div>
+
+      {/* Transaction simulation preview dialog */}
+      <TxSimulationPreview {...simulationDialogProps} />
     </ErrorBoundary>
   );
 }
