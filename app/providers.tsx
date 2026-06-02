@@ -38,6 +38,17 @@ const ALL_MESSAGES: Record<Locale, Record<string, unknown>> = {
   en: enMessages as Record<string, unknown>,
   es: esMessages as Record<string, unknown>,
 };
+const FeedbackWidget = dynamic(
+  () => import("@/components/feedback/FeedbackWidget").then((m) => m.FeedbackWidget),
+  { ssr: false, loading: () => null }
+);
+const KeyboardShortcutsProvider = dynamic(
+  () =>
+    import("@/components/keyboard/KeyboardShortcutsProvider").then(
+      (m) => m.KeyboardShortcutsProvider
+    ),
+  { ssr: false, loading: () => null }
+);
 
 function ThemedToaster() {
   const theme = useUIStore((s) => s.theme);
@@ -75,6 +86,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <OnboardingTour />
           <WalletConnectModal />
           <InstallPrompt />
+          <FeedbackWidget />
+          <KeyboardShortcutsProvider />
           <ThemedToaster />
           {env.NEXT_PUBLIC_ENABLE_DEVTOOLS && (
             <ReactQueryDevtools initialIsOpen={false} />
