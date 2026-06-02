@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { NextWebVitalsMetric } from "next/app";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -6,6 +7,35 @@ import { Navbar } from "@/components/layout/Navbar";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { env } from "@/lib/env";
 import { websiteSchema, organizationSchema, serializeSchema } from "@/lib/structuredData";
+import { handleWebVital } from "@/lib/webVitals";
+import dynamic from "next/dynamic";
+
+// Dev-only vitals panel — zero bundle cost in production
+const WebVitalsPanel =
+  process.env.NODE_ENV === "development"
+    ? dynamic(
+        () =>
+          import("@/components/dev/WebVitalsPanel").then((m) => m.WebVitalsPanel),
+        { ssr: false }
+      )
+    : () => null;
+
+/**
+ * reportWebVitals — called by Next.js for each Core Web Vital.
+ * In development: logs to console with pass/fail colouring + fires a
+ * CustomEvent so the WebVitalsPanel overlay can display live readings.
+ * In production: batches and POSTs to /api/vitals.
+ */
+export function reportWebVitals(metric: NextWebVitalsMetric): void {
+  handleWebVital(metric);
+
+  // Broadcast to the dev panel (no-op in production because the panel is not mounted)
+  if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("kora:webvital", { detail: metric })
+    );
+  }
+}
 
 // Optimised font loading: display=swap prevents render-blocking, subset limits
 // download size. Both fonts are preloaded by next/font automatically.
@@ -157,6 +187,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main id="content" className="min-h-screen">
             <PageTransition>{children}</PageTransition>
           </main>
+          <WebVitalsPanel />
         </Providers>
       </body>
     </html>
