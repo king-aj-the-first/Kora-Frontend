@@ -17,6 +17,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { WalletButton } from "@/components/wallet/WalletButton";
 import { useUIStore } from "@/store/uiStore";
+import { useResolvedTheme } from "@/components/layout/ThemeProvider";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -32,8 +33,8 @@ const MENU_ID = "mobile-nav-menu";
 export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
+  const resolvedTheme = useResolvedTheme();
   const navRef = useRef<HTMLElement>(null);
 
   // Close on route change
@@ -115,14 +116,12 @@ export function Navbar() {
             type="button"
             onClick={toggleTheme}
             className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={
-              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-            }
+            aria-label="Toggle theme"
           >
-            {theme === "dark" ? (
-              <Sun className="h-5 w-5" />
+            {resolvedTheme === "dark" ? (
+              <Sun className="h-5 w-5" aria-hidden="true" />
             ) : (
-              <Moon className="h-5 w-5" />
+              <Moon className="h-5 w-5" aria-hidden="true" />
             )}
           </button>
 
