@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Users, TrendingUp, MapPin, ArrowRight, Clock, GitCompareArrows } from "lucide-react";
 import { RiskBadge, Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ import useCountdown from "@/hooks/useCountdown";
 import CountdownTimer from "@/components/ui/CountdownTimer";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import { DebtorDisplay } from "./DebtorDisplay";
+import { InvoiceCardHoverPopover } from "./InvoiceCardHoverPopover";
 import { useInvoiceStore } from "@/store/invoiceStore";
 import type { Invoice } from "@/types";
 
@@ -75,17 +77,55 @@ export function InvoiceCard({ invoice, index = 0, updatedAt }: InvoiceCardProps)
   const isInComparison = comparisonList.includes(invoice.id);
   const comparisonFull = comparisonList.length >= 3 && !isInComparison;
   
+  // Hover popover state
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const cardRef = useRef<HTMLAnchorElement>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   // Check if invoice is expired
   const countdown = useCountdown(listingExpiry);
   const isExpired = countdown.isExpired || status === "cancelled";
 
-  const handleMouseEnter = () => {
+  const handleMouseEnter = useCallback(() => {
+    // Prefetch detail query
     queryClient.prefetchQuery({
       queryKey: queryKeys.invoices.detail(invoice.id),
       queryFn: () => fetchInvoiceById(invoice.id),
       staleTime: 30000,
     });
-  };
+
+    // Delay popover open to avoid flash on quick hovers
+    hoverTimeoutRef.current = setTimeout(() => {
+      if (!isExpired) {
+        setPopoverOpen(true);
+      }
+    }, 300);
+  }, [queryClient, invoice.id, isExpired]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setPopoverOpen(false);
+  }, []);
+
+  const handleFocus = useCallback(() => {
+    if (!isExpired) {
+      setPopoverOpen(true);
+    }
+  }, [isExpired]);
+
+  const handleBlur = useCallback(() => {
+    setPopoverOpen(false);
+  }, []);
+
+  // Cleanup on unmount
+  const handleUnmount = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+  }, []);
 
   const handleCompareToggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -95,11 +135,16 @@ export function InvoiceCard({ invoice, index = 0, updatedAt }: InvoiceCardProps)
 
   return (
     <Link
+      ref={cardRef}
       href={`/marketplace/${invoice.id}`}
       className={cn("block group relative h-full", isExpired && "opacity-60")}
       onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
       role="article"
       aria-label={`Invoice for ${metadata.debtorName}, Amount: ${formatCurrency(metadata.amount, metadata.currency, true)}, Risk Tier: ${riskTier}, APR: ${formatApr(terms.apr)}`}
+      aria-describedby={popoverOpen ? `invoice-popover-${invoice.id}` : undefined}
     >
       <motion.div
         layoutId={`invoice-card-${invoice.id}`}
@@ -245,6 +290,14 @@ export function InvoiceCard({ invoice, index = 0, updatedAt }: InvoiceCardProps)
             <ArrowRight className="h-4 w-4" />
           </div>
         </div>
+
+        {/* Hover Popover */}
+        <InvoiceCardHoverPopover
+          invoice={invoice}
+          isOpen={popoverOpen}
+          onOpenChange={setPopoverOpen}
+          triggerRef={cardRef}
+        />
       </motion.div>
     </Link>
   );
