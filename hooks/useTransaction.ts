@@ -3,7 +3,12 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useWallet } from "./useWallet";
-import { rpc, submitTransaction } from "@/lib/stellar/client";
+import {
+  rpc,
+  submitTransaction,
+  sequenceManager,
+  BadSequenceError,
+} from "@/lib/stellar/client";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
 export type TxLifecycleStatus =
@@ -12,6 +17,7 @@ export type TxLifecycleStatus =
   | "simulating"
   | "signing"
   | "submitting"
+  | "retrying"
   | "polling"
   | "confirmed"
   | "failed";
@@ -32,6 +38,7 @@ const STAGE_MESSAGES: Record<TxLifecycleStatus, string> = {
   simulating: "Simulating transaction…",
   signing: "Waiting for wallet signature…",
   submitting: "Submitting to Stellar network…",
+  retrying: "Syncing sequence number and retrying…",
   polling: "Waiting for confirmation…",
   confirmed: "Transaction confirmed!",
   failed: "Transaction failed",
@@ -55,45 +62,60 @@ async function pollWithBackoff(hash: string): Promise<string> {
   throw new Error(`Transaction not confirmed after ${MAX_POLL_ATTEMPTS} attempts`);
 }
 
+/**
+ * Build, simulate, sign and submit a Soroban transaction.
+ * Returns the signed XDR string.
+ */
+async function buildAndSign(
+  buildFn: () => Promise<string>,
+  signTransaction: (xdr: string) => Promise<string>,
+  setStage: (status: TxLifecycleStatus) => void
+): Promise<string> {
+  setStage("building");
+  const unsignedXdr = await buildFn();
+
+  // Simulate only for real (non-mock) transactions
+  if (!unsignedXdr.startsWith("mock_")) {
+    setStage("simulating");
+    const tx = StellarSdk.TransactionBuilder.fromXDR(
+      unsignedXdr,
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE || StellarSdk.Networks.TESTNET
+    );
+    const sim = await rpc.simulateTransaction(tx);
+    if (StellarSdk.rpc.Api.isSimulationError(sim)) {
+      throw new Error(`Simulation failed: ${sim.error}`);
+    }
+  }
+
+  setStage("signing");
+  return signTransaction(unsignedXdr);
+}
+
 export function useTransaction() {
   const [state, setState] = useState<TxState>({ status: "idle" });
-  const { signTransaction } = useWallet();
+  const { signTransaction, publicKey } = useWallet();
 
-  const setStage = (status: TxLifecycleStatus, extra?: Partial<TxState>) => {
+  const setStage = useCallback((status: TxLifecycleStatus, extra?: Partial<TxState>) => {
     setState((s) => ({ ...s, status, ...extra }));
     if (status !== "idle" && status !== "confirmed" && status !== "failed") {
       toast.loading(STAGE_MESSAGES[status], { id: TOAST_ID });
     }
-  };
+  }, []);
 
   const execute = useCallback(
     async (
       buildFn: () => Promise<string>,
-      options?: { onSuccess?: (hash: string) => void; successMessage?: string; onError?: (err: unknown) => void }
+      options?: {
+        onSuccess?: (hash: string) => void;
+        successMessage?: string;
+        onError?: (err: unknown) => void;
+      }
     ): Promise<string | null> => {
       try {
-        // 1. Build
-        setStage("building");
-        const unsignedXdr = await buildFn();
+        // ── Phase 1: build + simulate + sign ──────────────────────────────
+        let signedXdr = await buildAndSign(buildFn, signTransaction, setStage);
 
-        // 2. Simulate (skip for mock XDRs)
-        if (!unsignedXdr.startsWith("mock_")) {
-          setStage("simulating");
-          const tx = StellarSdk.TransactionBuilder.fromXDR(
-            unsignedXdr,
-            process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE || StellarSdk.Networks.TESTNET
-          );
-          const sim = await rpc.simulateTransaction(tx);
-          if (StellarSdk.rpc.Api.isSimulationError(sim)) {
-            throw new Error(`Simulation failed: ${sim.error}`);
-          }
-        }
-
-        // 3. Sign
-        setStage("signing");
-        const signedXdr = await signTransaction(unsignedXdr);
-
-        // 4. Submit
+        // ── Phase 2: submit (with one seq-reset retry) ─────────────────────
         setStage("submitting");
         let hash: string;
 
@@ -103,12 +125,34 @@ export function useTransaction() {
             Math.floor(Math.random() * 16).toString(16)
           ).join("");
         } else {
-          const result = await submitTransaction(signedXdr);
-          if (result.status === "ERROR") throw new Error("Transaction submission failed");
-          hash = result.hash;
+          try {
+            const result = await submitTransaction(signedXdr);
+            if (result.status === "ERROR") throw new Error("Transaction submission failed");
+            hash = result.hash;
+          } catch (err) {
+            if (err instanceof BadSequenceError && publicKey) {
+              // Reset the local sequence counter from the authoritative network
+              // value, rebuild the transaction with the corrected sequence, and
+              // retry exactly once. The user never sees this — it's transparent.
+              setStage("retrying");
+              await sequenceManager.reset(publicKey);
+
+              setStage("building");
+              signedXdr = await buildAndSign(buildFn, signTransaction, setStage);
+
+              setStage("submitting");
+              const retryResult = await submitTransaction(signedXdr);
+              if (retryResult.status === "ERROR") {
+                throw new Error("Transaction submission failed after sequence reset");
+              }
+              hash = retryResult.hash;
+            } else {
+              throw err;
+            }
+          }
         }
 
-        // 5. Poll
+        // ── Phase 4: poll for confirmation ─────────────────────────────────
         setStage("polling", { txHash: hash });
         if (!signedXdr.startsWith("mock_")) {
           await pollWithBackoff(hash);
@@ -116,7 +160,7 @@ export function useTransaction() {
           await new Promise((r) => setTimeout(r, 1000));
         }
 
-        // 6. Confirmed
+        // ── Phase 5: done ──────────────────────────────────────────────────
         setState({ status: "confirmed", txHash: hash });
         toast.success(options?.successMessage ?? "Transaction confirmed!", {
           id: TOAST_ID,
@@ -137,7 +181,7 @@ export function useTransaction() {
         return null;
       }
     },
-    [signTransaction]
+    [signTransaction, publicKey, setStage]
   );
 
   const reset = useCallback(() => setState({ status: "idle" }), []);
